@@ -268,11 +268,13 @@
                 <div class="mode-buttons">
                     <button class="btn btn-secondary active" id="modePoint" onclick="setMode('point')">Point</button>
                     <button class="btn btn-secondary" id="modeLine" onclick="setMode('line')">Line</button>
+                    <button class="btn btn-secondary" id="modeSelect" onclick="setMode('select')">Select</button>
                     <button class="btn btn-secondary" id="modePan" onclick="setMode('pan')">Pan</button>
                 </div>
                 <p class="help-text">
                     Point: Click to add waypoint<br>
                     Line: Drag to draw path<br>
+                    Select: Click and drag waypoint<br>
                     Pan: Drag to move view
                 </p>
 
@@ -333,6 +335,8 @@
         let offsetY = 0;
         let isDragging = false;
         let isDrawingLine = false;
+        let isDraggingWaypoint = false;
+        let selectedWaypointIndex = -1;
         let lastMouseX = 0;
         let lastMouseY = 0;
         let linePoints = [];
@@ -383,8 +387,16 @@
 
             if (mode === 'pan') {
                 canvas.style.cursor = 'grab';
+            } else if (mode === 'select') {
+                canvas.style.cursor = 'pointer';
             } else {
                 canvas.style.cursor = 'crosshair';
+            }
+
+            // Clear selection when changing mode
+            if (mode !== 'select') {
+                selectedWaypointIndex = -1;
+                render();
             }
         }
 
@@ -547,6 +559,26 @@
             };
         }
 
+        // Find waypoint at screen position (returns index or -1)
+        function findWaypointAtPosition(sx, sy) {
+            const clickRadius = 15; // pixels
+
+            for (let i = waypoints.length - 1; i >= 0; i--) {
+                const wp = waypoints[i];
+                const pixel = worldToPixel(wp.x, wp.y);
+                const screen = pixelToScreen(pixel.x, pixel.y);
+
+                const dx = screen.x - sx;
+                const dy = screen.y - sy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist <= clickRadius) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
         // Event handlers
         function onMouseDown(e) {
             const rect = canvas.getBoundingClientRect();
@@ -559,6 +591,17 @@
             if (currentMode === 'pan') {
                 isDragging = true;
                 canvas.style.cursor = 'grabbing';
+            } else if (currentMode === 'select') {
+                const wpIndex = findWaypointAtPosition(sx, sy);
+                if (wpIndex !== -1) {
+                    selectedWaypointIndex = wpIndex;
+                    isDraggingWaypoint = true;
+                    canvas.style.cursor = 'move';
+                    render();
+                } else {
+                    selectedWaypointIndex = -1;
+                    render();
+                }
             } else if (currentMode === 'point') {
                 const pixel = screenToPixel(sx, sy);
                 if (mapImage && pixel.x >= 0 && pixel.x < imageWidth && pixel.y >= 0 && pixel.y < imageHeight) {
@@ -589,7 +632,16 @@
                 document.getElementById('worldCoords').textContent = `World: (${world.x.toFixed(2)}, ${world.y.toFixed(2)}) m`;
             }
 
-            if (isDragging) {
+            if (isDraggingWaypoint && selectedWaypointIndex !== -1) {
+                const pixel = screenToPixel(sx, sy);
+                if (mapImage && pixel.x >= 0 && pixel.x < imageWidth && pixel.y >= 0 && pixel.y < imageHeight) {
+                    const world = pixelToWorld(pixel.x, pixel.y);
+                    waypoints[selectedWaypointIndex].x = world.x;
+                    waypoints[selectedWaypointIndex].y = world.y;
+                    updateWaypointList();
+                    render();
+                }
+            } else if (isDragging) {
                 offsetX += sx - lastMouseX;
                 offsetY += sy - lastMouseY;
                 lastMouseX = sx;
@@ -610,10 +662,19 @@
                     else ctx.lineTo(sp.x, sp.y);
                 }
                 ctx.stroke();
+            } else if (currentMode === 'select') {
+                // Update cursor based on whether hovering over a waypoint
+                const wpIndex = findWaypointAtPosition(sx, sy);
+                canvas.style.cursor = wpIndex !== -1 ? 'pointer' : 'default';
             }
         }
 
         function onMouseUp(e) {
+            if (isDraggingWaypoint) {
+                isDraggingWaypoint = false;
+                canvas.style.cursor = 'pointer';
+            }
+
             if (isDragging) {
                 isDragging = false;
                 canvas.style.cursor = currentMode === 'pan' ? 'grab' : 'crosshair';
@@ -945,6 +1006,16 @@
                     radius = 10;
                     markerColor = '#ffa500';
                 }
+
+                // Draw selection indicator
+                if (i === selectedWaypointIndex) {
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, radius + 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
                 ctx.fillStyle = markerColor;
                 ctx.beginPath();
                 ctx.arc(screen.x, screen.y, radius, 0, Math.PI * 2);
