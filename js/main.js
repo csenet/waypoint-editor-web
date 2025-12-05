@@ -36,6 +36,7 @@ function init() {
     canvas.addEventListener('mouseup', onMouseUp);
     canvas.addEventListener('mouseleave', onMouseUp);
     canvas.addEventListener('wheel', onWheel);
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // Add keyboard event listener for Delete key
     document.addEventListener('keydown', onKeyDown);

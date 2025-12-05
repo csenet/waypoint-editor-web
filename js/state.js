@@ -14,6 +14,7 @@ let offsetY = 0;
 let isDragging = false;
 let isDrawingLine = false;
 let isDraggingWaypoint = false;
+let isRightClickPanning = false;
 let selectedWaypointIndex = -1;
 let lastMouseX = 0;
 let lastMouseY = 0;

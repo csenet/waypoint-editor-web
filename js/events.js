@@ -8,6 +8,13 @@ function onMouseDown(e) {
     lastMouseX = sx;
     lastMouseY = sy;
 
+    // Right click (button 2) for panning
+    if (e.button === 2) {
+        isRightClickPanning = true;
+        canvas.style.cursor = 'grabbing';
+        return;
+    }
+
     if (currentMode === 'pan') {
         isDragging = true;
         canvas.style.cursor = 'grabbing';
@@ -89,7 +96,7 @@ function onMouseMove(e) {
             updateWaypointList();
             render();
         }
-    } else if (isDragging) {
+    } else if (isDragging || isRightClickPanning) {
         offsetX += sx - lastMouseX;
         offsetY += sy - lastMouseY;
         lastMouseX = sx;
@@ -126,6 +133,18 @@ function onMouseUp() {
     if (isDragging) {
         isDragging = false;
         canvas.style.cursor = currentMode === 'pan' ? 'grab' : 'crosshair';
+    }
+
+    if (isRightClickPanning) {
+        isRightClickPanning = false;
+        // Restore cursor based on current mode
+        if (currentMode === 'pan') {
+            canvas.style.cursor = 'grab';
+        } else if (currentMode === 'select') {
+            canvas.style.cursor = 'pointer';
+        } else {
+            canvas.style.cursor = 'crosshair';
+        }
     }
 
     if (isDrawingLine && linePoints.length > 1) {
