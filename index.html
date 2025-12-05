@@ -246,66 +246,69 @@
             <h1>Waypoint Editor</h1>
 
             <div class="section">
-                <h2>Map Settings</h2>
-                <label>PGM File</label>
+                <h2>マップ設定</h2>
+                <label>PGMファイル</label>
                 <input type="file" id="pgmFile" accept=".pgm,.png,.jpg">
 
-                <label>YAML File (optional)</label>
+                <label>YAMLファイル（オプション）</label>
                 <input type="file" id="yamlFile" accept=".yaml,.yml">
 
-                <label>Resolution (m/pixel)</label>
+                <label>解像度 (m/pixel)</label>
                 <input type="number" id="resolution" value="0.05" step="0.001">
 
-                <label>Origin X (m)</label>
+                <label>原点 X (m)</label>
                 <input type="number" id="originX" value="-102" step="0.1">
 
-                <label>Origin Y (m)</label>
+                <label>原点 Y (m)</label>
                 <input type="number" id="originY" value="-141" step="0.1">
             </div>
 
             <div class="section">
-                <h2>Edit Mode</h2>
+                <h2>編集モード</h2>
                 <div class="mode-buttons">
-                    <button class="btn btn-secondary active" id="modePoint" onclick="setMode('point')">Point</button>
-                    <button class="btn btn-secondary" id="modeLine" onclick="setMode('line')">Line</button>
-                    <button class="btn btn-secondary" id="modeSelect" onclick="setMode('select')">Select</button>
-                    <button class="btn btn-secondary" id="modePan" onclick="setMode('pan')">Pan</button>
+                    <button class="btn btn-secondary active" id="modePoint" onclick="setMode('point')">ポイント</button>
+                    <button class="btn btn-secondary" id="modeLine" onclick="setMode('line')">ライン</button>
+                    <button class="btn btn-secondary" id="modeSmartPath" onclick="setMode('smartPath')">経路計画</button>
+                    <button class="btn btn-secondary" id="modeSelect" onclick="setMode('select')">選択</button>
+                    <button class="btn btn-secondary" id="modePan" onclick="setMode('pan')">移動</button>
                 </div>
                 <p class="help-text">
-                    Point: Click to add waypoint<br>
-                    Line: Drag to draw path<br>
-                    Select: Click and drag waypoint<br>
-                    Pan: Drag to move view
+                    ポイント: クリックでウェイポイント追加<br>
+                    ライン: ドラッグで経路を描画<br>
+                    経路計画: 障害物を避けて経路生成<br>
+                    選択: クリック＆ドラッグで移動<br>
+                    選択: Delete/Backspaceで削除<br>
+                    移動: ドラッグで画面を移動
                 </p>
 
-                <label>Line Sampling Interval (m)</label>
+                <label>ライン間隔 (m)</label>
                 <input type="number" id="lineInterval" value="0.5" step="0.1" min="0.1">
             </div>
 
             <div class="section">
-                <h2>Waypoints (<span id="waypointCount">0</span>)</h2>
+                <h2>ウェイポイント (<span id="waypointCount">0</span>)</h2>
                 <div class="waypoint-list" id="waypointList">
-                    <p style="color: #666; padding: 10px;">No waypoints yet</p>
+                    <p style="color: #666; padding: 10px;">ウェイポイントがありません</p>
                 </div>
-                <button class="btn btn-danger" onclick="clearWaypoints()">Clear All</button>
-                <button class="btn btn-secondary" onclick="undoLast()">Undo Last</button>
+                <button class="btn btn-danger" onclick="clearWaypoints()">すべて削除</button>
+                <button class="btn btn-secondary" onclick="undoLast()">元に戻す</button>
             </div>
 
             <div class="section">
-                <h2>Export</h2>
-                <button class="btn btn-primary" onclick="exportCSV()">Export CSV</button>
-                <button class="btn btn-secondary" onclick="importCSV()">Import CSV</button>
+                <h2>エクスポート</h2>
+                <button class="btn btn-primary" onclick="exportCSV()">CSV出力</button>
+                <button class="btn btn-secondary" onclick="importCSV()">CSV読込</button>
                 <input type="file" id="csvImport" accept=".csv" style="display: none;">
 
                 <div class="info-box" style="margin-top: 10px;">
-                    <strong>CSV Format:</strong><br>
+                    <strong>CSV形式:</strong><br>
                     <code>x,y,yaw,pause_sec</code><br>
-                    x, y: position in meters<br>
-                    yaw: orientation in radians<br>
+                    x, y: 位置 (メートル)<br>
+                    yaw: 向き (ラジアン)<br>
                     pause_sec:<br>
-                    &nbsp; 0 = no pause<br>
-                    &nbsp; >0 = wait N seconds<br>
-                    &nbsp; -1 = wait for topic
+                    &nbsp; 0 = 一時停止なし<br>
+                    &nbsp; >0 = N秒待機<br>
+                    &nbsp; -1 = トピック待機
                 </div>
             </div>
         </div>
@@ -340,6 +343,9 @@
         let lastMouseX = 0;
         let lastMouseY = 0;
         let linePoints = [];
+        let smartPathStart = null;
+        let smartPathEnd = null;
+        let obstacleMap = null;
 
         // Map parameters
         let resolution = 0.05;
@@ -363,6 +369,9 @@
             canvas.addEventListener('mouseup', onMouseUp);
             canvas.addEventListener('mouseleave', onMouseUp);
             canvas.addEventListener('wheel', onWheel);
+
+            // Add keyboard event listener for Delete key
+            document.addEventListener('keydown', onKeyDown);
 
             document.getElementById('resolution').addEventListener('change', updateResolution);
             document.getElementById('originX').addEventListener('change', updateOrigin);
@@ -396,8 +405,15 @@
             // Clear selection when changing mode
             if (mode !== 'select') {
                 selectedWaypointIndex = -1;
-                render();
             }
+
+            // Clear smart path selection
+            if (mode !== 'smartPath') {
+                smartPathStart = null;
+                smartPathEnd = null;
+            }
+
+            render();
         }
 
         function loadPGM(e) {
@@ -418,6 +434,7 @@
                         mapImage = img;
                         imageWidth = img.width;
                         imageHeight = img.height;
+                        buildObstacleMap();
                         resetView();
                     };
                     img.src = URL.createObjectURL(file);
@@ -487,9 +504,127 @@
                 mapImage = img;
                 imageWidth = width;
                 imageHeight = height;
+                buildObstacleMap();
                 resetView();
             };
             img.src = imgCanvas.toDataURL();
+        }
+
+        // Build obstacle map from image
+        function buildObstacleMap() {
+            if (!mapImage) return;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = imageWidth;
+            tempCanvas.height = imageHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(mapImage, 0, 0);
+
+            const imageData = tempCtx.getImageData(0, 0, imageWidth, imageHeight);
+            const data = imageData.data;
+
+            obstacleMap = new Array(imageHeight);
+            for (let y = 0; y < imageHeight; y++) {
+                obstacleMap[y] = new Array(imageWidth);
+                for (let x = 0; x < imageWidth; x++) {
+                    const idx = (y * imageWidth + x) * 4;
+                    const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                    // Threshold: darker pixels are obstacles
+                    obstacleMap[y][x] = brightness < 128 ? 1 : 0;
+                }
+            }
+        }
+
+        // A* pathfinding algorithm
+        function findPath(startPx, startPy, endPx, endPy) {
+            if (!obstacleMap) return null;
+
+            const start = { x: Math.round(startPx), y: Math.round(startPy) };
+            const end = { x: Math.round(endPx), y: Math.round(endPy) };
+
+            // Check bounds
+            if (start.x < 0 || start.x >= imageWidth || start.y < 0 || start.y >= imageHeight) return null;
+            if (end.x < 0 || end.x >= imageWidth || end.y < 0 || end.y >= imageHeight) return null;
+
+            const openSet = [start];
+            const cameFrom = {};
+            const gScore = {};
+            const fScore = {};
+            const key = (p) => `${p.x},${p.y}`;
+
+            gScore[key(start)] = 0;
+            fScore[key(start)] = heuristic(start, end);
+
+            while (openSet.length > 0) {
+                // Find node with lowest fScore
+                let current = openSet[0];
+                let currentIdx = 0;
+                for (let i = 1; i < openSet.length; i++) {
+                    if (fScore[key(openSet[i])] < fScore[key(current)]) {
+                        current = openSet[i];
+                        currentIdx = i;
+                    }
+                }
+
+                // Reached goal
+                if (current.x === end.x && current.y === end.y) {
+                    return reconstructPath(cameFrom, current);
+                }
+
+                openSet.splice(currentIdx, 1);
+
+                // Check neighbors
+                const neighbors = [
+                    { x: current.x - 1, y: current.y },
+                    { x: current.x + 1, y: current.y },
+                    { x: current.x, y: current.y - 1 },
+                    { x: current.x, y: current.y + 1 },
+                    { x: current.x - 1, y: current.y - 1 },
+                    { x: current.x + 1, y: current.y - 1 },
+                    { x: current.x - 1, y: current.y + 1 },
+                    { x: current.x + 1, y: current.y + 1 }
+                ];
+
+                for (const neighbor of neighbors) {
+                    // Check bounds and obstacles
+                    if (neighbor.x < 0 || neighbor.x >= imageWidth ||
+                        neighbor.y < 0 || neighbor.y >= imageHeight ||
+                        obstacleMap[neighbor.y][neighbor.x] === 1) {
+                        continue;
+                    }
+
+                    const isDiagonal = neighbor.x !== current.x && neighbor.y !== current.y;
+                    const tentativeGScore = gScore[key(current)] + (isDiagonal ? 1.414 : 1);
+
+                    if (!(key(neighbor) in gScore) || tentativeGScore < gScore[key(neighbor)]) {
+                        cameFrom[key(neighbor)] = current;
+                        gScore[key(neighbor)] = tentativeGScore;
+                        fScore[key(neighbor)] = gScore[key(neighbor)] + heuristic(neighbor, end);
+
+                        if (!openSet.some(p => p.x === neighbor.x && p.y === neighbor.y)) {
+                            openSet.push(neighbor);
+                        }
+                    }
+                }
+            }
+
+            return null; // No path found
+        }
+
+        function heuristic(a, b) {
+            return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+        }
+
+        function reconstructPath(cameFrom, current) {
+            const path = [current];
+            const key = (p) => `${p.x},${p.y}`;
+
+            while (key(current) in cameFrom) {
+                current = cameFrom[key(current)];
+                path.unshift(current);
+            }
+
+            return path;
         }
 
         function loadYAML(e) {
@@ -615,6 +750,20 @@
                 if (mapImage) {
                     linePoints.push(pixel);
                 }
+            } else if (currentMode === 'smartPath') {
+                const pixel = screenToPixel(sx, sy);
+                if (mapImage && pixel.x >= 0 && pixel.x < imageWidth && pixel.y >= 0 && pixel.y < imageHeight) {
+                    if (!smartPathStart) {
+                        smartPathStart = pixel;
+                        render();
+                    } else {
+                        smartPathEnd = pixel;
+                        generateSmartPath();
+                        smartPathStart = null;
+                        smartPathEnd = null;
+                        render();
+                    }
+                }
             }
         }
 
@@ -706,6 +855,15 @@
 
             document.getElementById('zoomLevel').textContent = `Zoom: ${(scale * 100).toFixed(0)}%`;
             render();
+        }
+
+        function onKeyDown(e) {
+            // Delete or Backspace key - delete selected waypoint
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedWaypointIndex !== -1) {
+                e.preventDefault();
+                deleteWaypoint(selectedWaypointIndex);
+                selectedWaypointIndex = -1;
+            }
         }
 
         function zoomIn() {
@@ -803,12 +961,27 @@
             updateWaypointList();
         }
 
+        function generateSmartPath() {
+            if (!smartPathStart || !smartPathEnd || !obstacleMap) return;
+
+            const path = findPath(smartPathStart.x, smartPathStart.y, smartPathEnd.x, smartPathEnd.y);
+
+            if (!path) {
+                alert('経路が見つかりませんでした。障害物がないか確認してください。');
+                return;
+            }
+
+            // Convert pixel path to waypoints with interval sampling
+            const interval = parseFloat(document.getElementById('lineInterval').value) || 0.5;
+            generateWaypointsFromLine(path, interval);
+        }
+
         function updateWaypointList() {
             const list = document.getElementById('waypointList');
             document.getElementById('waypointCount').textContent = waypoints.length;
 
             if (waypoints.length === 0) {
-                list.innerHTML = '<p style="color: #666; padding: 10px;">No waypoints yet</p>';
+                list.innerHTML = '<p style="color: #666; padding: 10px;">ウェイポイントがありません</p>';
                 return;
             }
 
@@ -848,7 +1021,7 @@
         function togglePause(index) {
             const current = waypoints[index].pauseSec;
             const hint = current === -1 ? 'wait' : current;
-            const newPause = prompt('Enter pause duration:\n  0 = no pause\n  N = wait N seconds\n  -1 or "wait" = wait for /waypoint_resume topic', hint);
+            const newPause = prompt('一時停止時間を入力:\n  0 = 一時停止なし\n  N = N秒待機\n  -1 または "wait" = /waypoint_resume トピック待機', hint);
             if (newPause !== null) {
                 const trimmed = newPause.trim().toLowerCase();
                 if (trimmed === 'wait' || trimmed === 'w') {
@@ -868,7 +1041,7 @@
         }
 
         function clearWaypoints() {
-            if (confirm('Clear all waypoints?')) {
+            if (confirm('すべてのウェイポイントを削除しますか？')) {
                 waypoints = [];
                 updateWaypointList();
                 render();
@@ -886,7 +1059,7 @@
         // Export/Import
         function exportCSV() {
             if (waypoints.length === 0) {
-                alert('No waypoints to export');
+                alert('エクスポートするウェイポイントがありません');
                 return;
             }
 
@@ -1050,6 +1223,22 @@
                 }
             }
 
+            // Draw smart path markers
+            if (currentMode === 'smartPath' && smartPathStart) {
+                const screen = pixelToScreen(smartPathStart.x, smartPathStart.y);
+                ctx.fillStyle = '#0f0';
+                ctx.beginPath();
+                ctx.arc(screen.x, screen.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 10px sans-serif';
+                ctx.fillText('開始', screen.x + 12, screen.y + 5);
+            }
+
             // Draw origin marker
             if (mapImage) {
                 const originScreen = pixelToScreen(0, imageHeight);
@@ -1064,7 +1253,7 @@
 
                 ctx.fillStyle = '#00f';
                 ctx.font = '12px sans-serif';
-                ctx.fillText('Origin', originScreen.x + 5, originScreen.y + 20);
+                ctx.fillText('原点', originScreen.x + 5, originScreen.y + 20);
             }
         }
 
