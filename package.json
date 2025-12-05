@@ -16,6 +16,6 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "wrangler": "^3.78.0"
+    "wrangler": "^4.53.0"
   }
 }
