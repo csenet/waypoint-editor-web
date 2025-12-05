@@ -16,9 +16,41 @@
             color: #eee;
             min-height: 100vh;
         }
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: #16213e;
+            border-bottom: 2px solid #0f3460;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 15px;
+            z-index: 100;
+        }
+        .header h1 {
+            font-size: 1.2em;
+            margin: 0;
+            margin-right: 20px;
+            color: #e94560;
+        }
+        .header .mode-buttons {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+        }
+        .header .mode-buttons .btn {
+            padding: 8px 16px;
+            margin: 0;
+            font-size: 0.9em;
+            min-width: 90px;
+        }
         .container {
             display: flex;
             height: 100vh;
+            padding-top: 60px;
         }
         .sidebar {
             width: 320px;
@@ -241,10 +273,28 @@
     </style>
 </head>
 <body>
+    <div class="header">
+        <h1>Waypoint Editor</h1>
+        <div class="mode-buttons">
+            <button class="btn btn-secondary active" id="modePoint" onclick="setMode('point')">
+                ポイント <span style="opacity: 0.6; font-size: 0.85em;">(1)</span>
+            </button>
+            <button class="btn btn-secondary" id="modeLine" onclick="setMode('line')">
+                ライン <span style="opacity: 0.6; font-size: 0.85em;">(2)</span>
+            </button>
+            <button class="btn btn-secondary" id="modeSmartPath" onclick="setMode('smartPath')">
+                経路計画 <span style="opacity: 0.6; font-size: 0.85em;">(3)</span>
+            </button>
+            <button class="btn btn-secondary" id="modeSelect" onclick="setMode('select')">
+                選択 <span style="opacity: 0.6; font-size: 0.85em;">(4)</span>
+            </button>
+            <button class="btn btn-secondary" id="modePan" onclick="setMode('pan')">
+                移動 <span style="opacity: 0.6; font-size: 0.85em;">(5)</span>
+            </button>
+        </div>
+    </div>
     <div class="container">
         <div class="sidebar">
-            <h1>Waypoint Editor</h1>
-
             <div class="section">
                 <h2>マップ設定</h2>
                 <label>PGMファイル</label>
@@ -264,21 +314,15 @@
             </div>
 
             <div class="section">
-                <h2>編集モード</h2>
-                <div class="mode-buttons">
-                    <button class="btn btn-secondary active" id="modePoint" onclick="setMode('point')">ポイント</button>
-                    <button class="btn btn-secondary" id="modeLine" onclick="setMode('line')">ライン</button>
-                    <button class="btn btn-secondary" id="modeSmartPath" onclick="setMode('smartPath')">経路計画</button>
-                    <button class="btn btn-secondary" id="modeSelect" onclick="setMode('select')">選択</button>
-                    <button class="btn btn-secondary" id="modePan" onclick="setMode('pan')">移動</button>
-                </div>
+                <h2>操作方法</h2>
                 <p class="help-text">
-                    ポイント: クリックでウェイポイント追加<br>
-                    ライン: ドラッグで経路を描画<br>
-                    経路計画: 障害物を避けて経路生成<br>
-                    選択: クリック＆ドラッグで移動<br>
-                    選択: Delete/Backspaceで削除<br>
-                    移動: ドラッグで画面を移動
+                    <strong>ポイント (1):</strong> クリックで追加<br>
+                    <strong>ライン (2):</strong> ドラッグで描画<br>
+                    <strong>経路計画 (3):</strong> 開始→終了点で自動生成<br>
+                    <strong>選択 (4):</strong> ドラッグで移動<br>
+                    &nbsp;&nbsp;ダブルクリック/Wで待機トグル<br>
+                    &nbsp;&nbsp;Delete/Backspaceで削除<br>
+                    <strong>移動 (5):</strong> ドラッグで画面移動
                 </p>
 
                 <label>ライン間隔 (m)</label>
@@ -306,8 +350,7 @@
                     x, y: 位置 (メートル)<br>
                     yaw: 向き (ラジアン)<br>
                     pause_sec:<br>
-                    &nbsp; 0 = 一時停止なし<br>
-                    &nbsp; >0 = N秒待機<br>
+                    &nbsp; 0 = 待機なし<br>
                     &nbsp; -1 = トピック待機
                 </div>
             </div>
@@ -346,6 +389,8 @@
         let smartPathStart = null;
         let smartPathEnd = null;
         let obstacleMap = null;
+        let lastClickTime = 0;
+        let lastClickIndex = -1;
 
         // Map parameters
         let resolution = 0.05;
@@ -729,12 +774,26 @@
             } else if (currentMode === 'select') {
                 const wpIndex = findWaypointAtPosition(sx, sy);
                 if (wpIndex !== -1) {
-                    selectedWaypointIndex = wpIndex;
-                    isDraggingWaypoint = true;
-                    canvas.style.cursor = 'move';
+                    // Check for double-click
+                    const currentTime = Date.now();
+                    if (wpIndex === lastClickIndex && currentTime - lastClickTime < 300) {
+                        // Double-click detected - toggle wait state
+                        togglePause(wpIndex);
+                        lastClickTime = 0;
+                        lastClickIndex = -1;
+                    } else {
+                        // Single click - select and prepare to drag
+                        selectedWaypointIndex = wpIndex;
+                        isDraggingWaypoint = true;
+                        canvas.style.cursor = 'move';
+                        lastClickTime = currentTime;
+                        lastClickIndex = wpIndex;
+                    }
                     render();
                 } else {
                     selectedWaypointIndex = -1;
+                    lastClickTime = 0;
+                    lastClickIndex = -1;
                     render();
                 }
             } else if (currentMode === 'point') {
@@ -858,11 +917,42 @@
         }
 
         function onKeyDown(e) {
+            // Mode switching with number keys (1-5)
+            // Only if not typing in an input field
+            if (!e.target.matches('input, textarea')) {
+                if (e.key === '1') {
+                    e.preventDefault();
+                    setMode('point');
+                    return;
+                } else if (e.key === '2') {
+                    e.preventDefault();
+                    setMode('line');
+                    return;
+                } else if (e.key === '3') {
+                    e.preventDefault();
+                    setMode('smartPath');
+                    return;
+                } else if (e.key === '4') {
+                    e.preventDefault();
+                    setMode('select');
+                    return;
+                } else if (e.key === '5') {
+                    e.preventDefault();
+                    setMode('pan');
+                    return;
+                }
+            }
+
             // Delete or Backspace key - delete selected waypoint
             if ((e.key === 'Delete' || e.key === 'Backspace') && selectedWaypointIndex !== -1) {
                 e.preventDefault();
                 deleteWaypoint(selectedWaypointIndex);
                 selectedWaypointIndex = -1;
+            }
+            // W key - toggle wait state for selected waypoint
+            else if ((e.key === 'w' || e.key === 'W') && selectedWaypointIndex !== -1 && !e.target.matches('input, textarea')) {
+                e.preventDefault();
+                togglePause(selectedWaypointIndex);
             }
         }
 
@@ -987,17 +1077,13 @@
 
             list.innerHTML = waypoints.map((wp, i) => {
                 let itemClass = '';
-                let pauseLabel = 'P';
+                let pauseLabel = '-';
                 let pauseBtnClass = '';
 
                 if (wp.pauseSec === -1) {
                     itemClass = 'wait-topic';
                     pauseLabel = 'W';
                     pauseBtnClass = 'wait-topic';
-                } else if (wp.pauseSec > 0) {
-                    itemClass = 'pause';
-                    pauseLabel = wp.pauseSec + 's';
-                    pauseBtnClass = 'paused';
                 }
 
                 return `
@@ -1005,33 +1091,24 @@
                     <span class="index">${i+1}</span>
                     <span class="coords">
                         (${wp.x.toFixed(2)}, ${wp.y.toFixed(2)})
-                        ${wp.pauseSec === -1 ? '<br>Wait for topic' : (wp.pauseSec > 0 ? `<br>Pause: ${wp.pauseSec}s` : '')}
+                        ${wp.pauseSec === -1 ? '<br>トピック待機' : ''}
                     </span>
                     <span class="actions">
                         <button class="pause-btn ${pauseBtnClass}"
-                                onclick="togglePause(${i})" title="Toggle pause (P=none, W=wait topic, Ns=seconds)">
+                                onclick="togglePause(${i})" title="待機状態をトグル (-=なし, W=トピック待機)">
                             ${pauseLabel}
                         </button>
-                        <button class="delete-btn" onclick="deleteWaypoint(${i})" title="Delete">X</button>
+                        <button class="delete-btn" onclick="deleteWaypoint(${i})" title="削除">X</button>
                     </span>
                 </div>
             `}).join('');
         }
 
         function togglePause(index) {
-            const current = waypoints[index].pauseSec;
-            const hint = current === -1 ? 'wait' : current;
-            const newPause = prompt('一時停止時間を入力:\n  0 = 一時停止なし\n  N = N秒待機\n  -1 または "wait" = /waypoint_resume トピック待機', hint);
-            if (newPause !== null) {
-                const trimmed = newPause.trim().toLowerCase();
-                if (trimmed === 'wait' || trimmed === 'w') {
-                    waypoints[index].pauseSec = -1;
-                } else {
-                    waypoints[index].pauseSec = parseFloat(newPause) || 0;
-                }
-                updateWaypointList();
-                render();
-            }
+            // Toggle between 0 (no pause) and -1 (wait for topic)
+            waypoints[index].pauseSec = waypoints[index].pauseSec === -1 ? 0 : -1;
+            updateWaypointList();
+            render();
         }
 
         function deleteWaypoint(index) {
