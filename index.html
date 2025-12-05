@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waypoint Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 320px;
+            background: #16213e;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 2px solid #0f3460;
+        }
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #0f0f23;
+        }
+        #mapCanvas {
+            cursor: crosshair;
+        }
+        h1 {
+            font-size: 1.4em;
+            margin-bottom: 20px;
+            color: #e94560;
+        }
+        h2 {
+            font-size: 1.1em;
+            margin: 20px 0 10px 0;
+            color: #0f3460;
+            border-bottom: 1px solid #0f3460;
+            padding-bottom: 5px;
+            color: #e94560;
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #1a1a2e;
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px 0;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            background: #0f3460;
+            border: none;
+            border-radius: 4px;
+            color: #eee;
+            cursor: pointer;
+        }
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            background: #0f3460;
+            border: 1px solid #1a1a2e;
+            border-radius: 4px;
+            color: #eee;
+        }
+        input[type="number"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+        .btn {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #e94560;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #ff6b6b;
+        }
+        .btn-secondary {
+            background: #0f3460;
+            color: #eee;
+        }
+        .btn-secondary:hover {
+            background: #1a4a7e;
+        }
+        .btn-danger {
+            background: #8b0000;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #a52a2a;
+        }
+        .btn-warning {
+            background: #ffa500;
+            color: #1a1a2e;
+        }
+        .btn-warning:hover {
+            background: #ffb733;
+        }
+        .mode-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        .mode-buttons .btn {
+            flex: 1;
+        }
+        .mode-buttons .btn.active {
+            background: #e94560;
+            color: white;
+        }
+        .waypoint-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #0f3460;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        .waypoint-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin: 3px 0;
+            background: #16213e;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+        .waypoint-item.pause {
+            background: #3d2e00;
+            border-left: 3px solid #ffa500;
+        }
+        .waypoint-item.wait-topic {
+            background: #002e3d;
+            border-left: 3px solid #00bcd4;
+        }
+        .waypoint-item .index {
+            width: 25px;
+            font-weight: bold;
+            color: #e94560;
+        }
+        .waypoint-item .coords {
+            flex: 1;
+        }
+        .waypoint-item .actions {
+            display: flex;
+            gap: 3px;
+        }
+        .waypoint-item .actions button {
+            padding: 3px 8px;
+            font-size: 0.8em;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .waypoint-item .actions .pause-btn {
+            background: #ffa500;
+            color: #1a1a2e;
+        }
+        .waypoint-item .actions .pause-btn.paused {
+            background: #4caf50;
+        }
+        .waypoint-item .actions .pause-btn.wait-topic {
+            background: #00bcd4;
+        }
+        .waypoint-item .actions .delete-btn {
+            background: #8b0000;
+            color: white;
+        }
+        .info-box {
+            padding: 10px;
+            background: #0f3460;
+            border-radius: 4px;
+            font-size: 0.85em;
+            line-height: 1.6;
+        }
+        .info-box code {
+            background: #1a1a2e;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #4caf50;
+        }
+        .status-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 10px 20px;
+            background: rgba(22, 33, 62, 0.95);
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+        }
+        .zoom-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .zoom-controls button {
+            width: 40px;
+            height: 40px;
+            font-size: 1.5em;
+            border: none;
+            border-radius: 4px;
+            background: #16213e;
+            color: #eee;
+            cursor: pointer;
+        }
+        .zoom-controls button:hover {
+            background: #0f3460;
+        }
+        .help-text {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>Waypoint Editor</h1>
+
+            <div class="section">
+                <h2>Map Settings</h2>
+                <label>PGM File</label>
+                <input type="file" id="pgmFile" accept=".pgm,.png,.jpg">
+
+                <label>YAML File (optional)</label>
+                <input type="file" id="yamlFile" accept=".yaml,.yml">
+
+                <label>Resolution (m/pixel)</label>
+                <input type="number" id="resolution" value="0.05" step="0.001">
+
+                <label>Origin X (m)</label>
+                <input type="number" id="originX" value="-102" step="0.1">
+
+                <label>Origin Y (m)</label>
+                <input type="number" id="originY" value="-141" step="0.1">
+            </div>
+
+            <div class="section">
+                <h2>Edit Mode</h2>
+                <div class="mode-buttons">
+                    <button class="btn btn-secondary active" id="modePoint" onclick="setMode('point')">Point</button>
+                    <button class="btn btn-secondary" id="modeLine" onclick="setMode('line')">Line</button>
+                    <button class="btn btn-secondary" id="modePan" onclick="setMode('pan')">Pan</button>
+                </div>
+                <p class="help-text">
+                    Point: Click to add waypoint<br>
+                    Line: Drag to draw path<br>
+                    Pan: Drag to move view
+                </p>
+
+                <label>Line Sampling Interval (m)</label>
+                <input type="number" id="lineInterval" value="0.5" step="0.1" min="0.1">
+            </div>
+
+            <div class="section">
+                <h2>Waypoints (<span id="waypointCount">0</span>)</h2>
+                <div class="waypoint-list" id="waypointList">
+                    <p style="color: #666; padding: 10px;">No waypoints yet</p>
+                </div>
+                <button class="btn btn-danger" onclick="clearWaypoints()">Clear All</button>
+                <button class="btn btn-secondary" onclick="undoLast()">Undo Last</button>
+            </div>
+
+            <div class="section">
+                <h2>Export</h2>
+                <button class="btn btn-primary" onclick="exportCSV()">Export CSV</button>
+                <button class="btn btn-secondary" onclick="importCSV()">Import CSV</button>
+                <input type="file" id="csvImport" accept=".csv" style="display: none;">
+
+                <div class="info-box" style="margin-top: 10px;">
+                    <strong>CSV Format:</strong><br>
+                    <code>x,y,yaw,pause_sec</code><br>
+                    x, y: position in meters<br>
+                    yaw: orientation in radians<br>
+                    pause_sec:<br>
+                    &nbsp; 0 = no pause<br>
+                    &nbsp; >0 = wait N seconds<br>
+                    &nbsp; -1 = wait for topic
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="mapCanvas"></canvas>
+            <div class="zoom-controls">
+                <button onclick="zoomIn()">+</button>
+                <button onclick="zoomOut()">-</button>
+                <button onclick="resetView()">R</button>
+            </div>
+            <div class="status-bar">
+                <span id="mouseCoords">Mouse: -</span>
+                <span id="worldCoords">World: -</span>
+                <span id="zoomLevel">Zoom: 100%</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let mapImage = null;
+        let waypoints = [];
+        let currentMode = 'point';
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isDragging = false;
+        let isDrawingLine = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let linePoints = [];
+
+        // Map parameters
+        let resolution = 0.05;
+        let originX = -102;
+        let originY = -141;
+        let imageWidth = 0;
+        let imageHeight = 0;
+
+        // Canvas
+        const canvas = document.getElementById('mapCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvasContainer');
+
+        // Initialize
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            canvas.addEventListener('mousedown', onMouseDown);
+            canvas.addEventListener('mousemove', onMouseMove);
+            canvas.addEventListener('mouseup', onMouseUp);
+            canvas.addEventListener('mouseleave', onMouseUp);
+            canvas.addEventListener('wheel', onWheel);
+
+            document.getElementById('resolution').addEventListener('change', updateResolution);
+            document.getElementById('originX').addEventListener('change', updateOrigin);
+            document.getElementById('originY').addEventListener('change', updateOrigin);
+            document.getElementById('pgmFile').addEventListener('change', loadPGM);
+            document.getElementById('yamlFile').addEventListener('change', loadYAML);
+            document.getElementById('csvImport').addEventListener('change', handleCSVImport);
+
+            render();
+        }
+
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            render();
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-buttons .btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+
+            if (mode === 'pan') {
+                canvas.style.cursor = 'grab';
+            } else {
+                canvas.style.cursor = 'crosshair';
+            }
+        }
+
+        function loadPGM(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const data = new Uint8Array(event.target.result);
+
+                // Check if it's a binary PGM (P5)
+                if (data[0] === 80 && data[1] === 53) { // "P5"
+                    parsePGM(data);
+                } else {
+                    // Try as regular image
+                    const img = new Image();
+                    img.onload = function() {
+                        mapImage = img;
+                        imageWidth = img.width;
+                        imageHeight = img.height;
+                        resetView();
+                    };
+                    img.src = URL.createObjectURL(file);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parsePGM(data) {
+            // Parse P5 PGM format
+            let idx = 0;
+
+            // Skip magic number "P5"
+            while (data[idx] !== 10) idx++;
+            idx++;
+
+            // Skip comments
+            while (data[idx] === 35) { // '#'
+                while (data[idx] !== 10) idx++;
+                idx++;
+            }
+
+            // Parse width and height
+            let numStr = '';
+            while (data[idx] !== 32 && data[idx] !== 10) {
+                numStr += String.fromCharCode(data[idx]);
+                idx++;
+            }
+            const width = parseInt(numStr);
+            idx++;
+
+            numStr = '';
+            while (data[idx] !== 10) {
+                numStr += String.fromCharCode(data[idx]);
+                idx++;
+            }
+            const height = parseInt(numStr);
+            idx++;
+
+            // Parse max value
+            numStr = '';
+            while (data[idx] !== 10) {
+                numStr += String.fromCharCode(data[idx]);
+                idx++;
+            }
+            idx++;
+
+            // Create image from pixel data
+            const imgCanvas = document.createElement('canvas');
+            imgCanvas.width = width;
+            imgCanvas.height = height;
+            const imgCtx = imgCanvas.getContext('2d');
+            const imageData = imgCtx.createImageData(width, height);
+
+            for (let i = 0; i < width * height; i++) {
+                const val = data[idx + i];
+                imageData.data[i * 4] = val;
+                imageData.data[i * 4 + 1] = val;
+                imageData.data[i * 4 + 2] = val;
+                imageData.data[i * 4 + 3] = 255;
+            }
+
+            imgCtx.putImageData(imageData, 0, 0);
+
+            const img = new Image();
+            img.onload = function() {
+                mapImage = img;
+                imageWidth = width;
+                imageHeight = height;
+                resetView();
+            };
+            img.src = imgCanvas.toDataURL();
+        }
+
+        function loadYAML(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const text = event.target.result;
+                const lines = text.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('resolution:')) {
+                        resolution = parseFloat(line.split(':')[1].trim());
+                        document.getElementById('resolution').value = resolution;
+                    } else if (line.startsWith('origin:')) {
+                        const match = line.match(/\[([^,]+),\s*([^,]+)/);
+                        if (match) {
+                            originX = parseFloat(match[1]);
+                            originY = parseFloat(match[2]);
+                            document.getElementById('originX').value = originX;
+                            document.getElementById('originY').value = originY;
+                        }
+                    }
+                }
+                render();
+            };
+            reader.readAsText(file);
+        }
+
+        function updateResolution() {
+            resolution = parseFloat(document.getElementById('resolution').value) || 0.05;
+            render();
+        }
+
+        function updateOrigin() {
+            originX = parseFloat(document.getElementById('originX').value) || 0;
+            originY = parseFloat(document.getElementById('originY').value) || 0;
+            render();
+        }
+
+        // Coordinate conversion
+        function pixelToWorld(px, py) {
+            // PGM origin is top-left, ROS map origin is bottom-left
+            const worldX = originX + px * resolution;
+            const worldY = originY + (imageHeight - py) * resolution;
+            return { x: worldX, y: worldY };
+        }
+
+        function worldToPixel(wx, wy) {
+            const px = (wx - originX) / resolution;
+            const py = imageHeight - (wy - originY) / resolution;
+            return { x: px, y: py };
+        }
+
+        function screenToPixel(sx, sy) {
+            return {
+                x: (sx - offsetX) / scale,
+                y: (sy - offsetY) / scale
+            };
+        }
+
+        function pixelToScreen(px, py) {
+            return {
+                x: px * scale + offsetX,
+                y: py * scale + offsetY
+            };
+        }
+
+        // Event handlers
+        function onMouseDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const sx = e.clientX - rect.left;
+            const sy = e.clientY - rect.top;
+
+            lastMouseX = sx;
+            lastMouseY = sy;
+
+            if (currentMode === 'pan') {
+                isDragging = true;
+                canvas.style.cursor = 'grabbing';
+            } else if (currentMode === 'point') {
+                const pixel = screenToPixel(sx, sy);
+                if (mapImage && pixel.x >= 0 && pixel.x < imageWidth && pixel.y >= 0 && pixel.y < imageHeight) {
+                    const world = pixelToWorld(pixel.x, pixel.y);
+                    addWaypoint(world.x, world.y, 0, 0);
+                }
+            } else if (currentMode === 'line') {
+                isDrawingLine = true;
+                linePoints = [];
+                const pixel = screenToPixel(sx, sy);
+                if (mapImage) {
+                    linePoints.push(pixel);
+                }
+            }
+        }
+
+        function onMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const sx = e.clientX - rect.left;
+            const sy = e.clientY - rect.top;
+
+            // Update status bar
+            const pixel = screenToPixel(sx, sy);
+            document.getElementById('mouseCoords').textContent = `Pixel: (${pixel.x.toFixed(0)}, ${pixel.y.toFixed(0)})`;
+
+            if (mapImage && pixel.x >= 0 && pixel.x < imageWidth && pixel.y >= 0 && pixel.y < imageHeight) {
+                const world = pixelToWorld(pixel.x, pixel.y);
+                document.getElementById('worldCoords').textContent = `World: (${world.x.toFixed(2)}, ${world.y.toFixed(2)}) m`;
+            }
+
+            if (isDragging) {
+                offsetX += sx - lastMouseX;
+                offsetY += sy - lastMouseY;
+                lastMouseX = sx;
+                lastMouseY = sy;
+                render();
+            } else if (isDrawingLine) {
+                const pixel = screenToPixel(sx, sy);
+                linePoints.push(pixel);
+                render();
+
+                // Draw temporary line
+                ctx.strokeStyle = '#ff0';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < linePoints.length; i++) {
+                    const sp = pixelToScreen(linePoints[i].x, linePoints[i].y);
+                    if (i === 0) ctx.moveTo(sp.x, sp.y);
+                    else ctx.lineTo(sp.x, sp.y);
+                }
+                ctx.stroke();
+            }
+        }
+
+        function onMouseUp(e) {
+            if (isDragging) {
+                isDragging = false;
+                canvas.style.cursor = currentMode === 'pan' ? 'grab' : 'crosshair';
+            }
+
+            if (isDrawingLine && linePoints.length > 1) {
+                const interval = parseFloat(document.getElementById('lineInterval').value) || 0.5;
+                generateWaypointsFromLine(linePoints, interval);
+            }
+            isDrawingLine = false;
+            linePoints = [];
+            render();
+        }
+
+        function onWheel(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const sx = e.clientX - rect.left;
+            const sy = e.clientY - rect.top;
+
+            const oldScale = scale;
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            scale *= delta;
+            scale = Math.max(0.1, Math.min(10, scale));
+
+            // Zoom towards cursor
+            offsetX = sx - (sx - offsetX) * (scale / oldScale);
+            offsetY = sy - (sy - offsetY) * (scale / oldScale);
+
+            document.getElementById('zoomLevel').textContent = `Zoom: ${(scale * 100).toFixed(0)}%`;
+            render();
+        }
+
+        function zoomIn() {
+            scale *= 1.2;
+            scale = Math.min(10, scale);
+            document.getElementById('zoomLevel').textContent = `Zoom: ${(scale * 100).toFixed(0)}%`;
+            render();
+        }
+
+        function zoomOut() {
+            scale *= 0.8;
+            scale = Math.max(0.1, scale);
+            document.getElementById('zoomLevel').textContent = `Zoom: ${(scale * 100).toFixed(0)}%`;
+            render();
+        }
+
+        function resetView() {
+            if (mapImage) {
+                const scaleX = canvas.width / imageWidth;
+                const scaleY = canvas.height / imageHeight;
+                scale = Math.min(scaleX, scaleY) * 0.9;
+                offsetX = (canvas.width - imageWidth * scale) / 2;
+                offsetY = (canvas.height - imageHeight * scale) / 2;
+            } else {
+                scale = 1;
+                offsetX = 0;
+                offsetY = 0;
+            }
+            document.getElementById('zoomLevel').textContent = `Zoom: ${(scale * 100).toFixed(0)}%`;
+            render();
+        }
+
+        // Waypoint management
+        function addWaypoint(x, y, yaw, pauseSec) {
+            waypoints.push({ x, y, yaw, pauseSec });
+            updateWaypointList();
+            render();
+        }
+
+        function generateWaypointsFromLine(points, interval) {
+            if (points.length < 2) return;
+
+            // Calculate total length and sample at intervals
+            let totalDist = 0;
+            const worldPoints = points.map(p => pixelToWorld(p.x, p.y));
+
+            for (let i = 1; i < worldPoints.length; i++) {
+                const dx = worldPoints[i].x - worldPoints[i-1].x;
+                const dy = worldPoints[i].y - worldPoints[i-1].y;
+                totalDist += Math.sqrt(dx*dx + dy*dy);
+            }
+
+            // Add first point
+            addWaypoint(worldPoints[0].x, worldPoints[0].y, 0, 0);
+
+            // Sample along the path
+            let accDist = 0;
+            let lastSampleDist = 0;
+
+            for (let i = 1; i < worldPoints.length; i++) {
+                const dx = worldPoints[i].x - worldPoints[i-1].x;
+                const dy = worldPoints[i].y - worldPoints[i-1].y;
+                const segDist = Math.sqrt(dx*dx + dy*dy);
+
+                let segProgress = 0;
+                while (accDist + segProgress < accDist + segDist) {
+                    const nextSampleDist = lastSampleDist + interval;
+                    const distIntoSeg = nextSampleDist - accDist;
+
+                    if (distIntoSeg <= segDist) {
+                        const t = distIntoSeg / segDist;
+                        const px = worldPoints[i-1].x + dx * t;
+                        const py = worldPoints[i-1].y + dy * t;
+                        const yaw = Math.atan2(dy, dx);
+                        addWaypoint(px, py, yaw, 0);
+                        lastSampleDist = nextSampleDist;
+                        segProgress = distIntoSeg;
+                    } else {
+                        break;
+                    }
+                }
+                accDist += segDist;
+            }
+
+            // Calculate yaw for each waypoint based on direction to next
+            for (let i = 0; i < waypoints.length - 1; i++) {
+                const dx = waypoints[i+1].x - waypoints[i].x;
+                const dy = waypoints[i+1].y - waypoints[i].y;
+                waypoints[i].yaw = Math.atan2(dy, dx);
+            }
+            if (waypoints.length > 1) {
+                waypoints[waypoints.length-1].yaw = waypoints[waypoints.length-2].yaw;
+            }
+
+            updateWaypointList();
+        }
+
+        function updateWaypointList() {
+            const list = document.getElementById('waypointList');
+            document.getElementById('waypointCount').textContent = waypoints.length;
+
+            if (waypoints.length === 0) {
+                list.innerHTML = '<p style="color: #666; padding: 10px;">No waypoints yet</p>';
+                return;
+            }
+
+            list.innerHTML = waypoints.map((wp, i) => {
+                let itemClass = '';
+                let pauseLabel = 'P';
+                let pauseBtnClass = '';
+
+                if (wp.pauseSec === -1) {
+                    itemClass = 'wait-topic';
+                    pauseLabel = 'W';
+                    pauseBtnClass = 'wait-topic';
+                } else if (wp.pauseSec > 0) {
+                    itemClass = 'pause';
+                    pauseLabel = wp.pauseSec + 's';
+                    pauseBtnClass = 'paused';
+                }
+
+                return `
+                <div class="waypoint-item ${itemClass}">
+                    <span class="index">${i+1}</span>
+                    <span class="coords">
+                        (${wp.x.toFixed(2)}, ${wp.y.toFixed(2)})
+                        ${wp.pauseSec === -1 ? '<br>Wait for topic' : (wp.pauseSec > 0 ? `<br>Pause: ${wp.pauseSec}s` : '')}
+                    </span>
+                    <span class="actions">
+                        <button class="pause-btn ${pauseBtnClass}"
+                                onclick="togglePause(${i})" title="Toggle pause (P=none, W=wait topic, Ns=seconds)">
+                            ${pauseLabel}
+                        </button>
+                        <button class="delete-btn" onclick="deleteWaypoint(${i})" title="Delete">X</button>
+                    </span>
+                </div>
+            `}).join('');
+        }
+
+        function togglePause(index) {
+            const current = waypoints[index].pauseSec;
+            const hint = current === -1 ? 'wait' : current;
+            const newPause = prompt('Enter pause duration:\n  0 = no pause\n  N = wait N seconds\n  -1 or "wait" = wait for /waypoint_resume topic', hint);
+            if (newPause !== null) {
+                const trimmed = newPause.trim().toLowerCase();
+                if (trimmed === 'wait' || trimmed === 'w') {
+                    waypoints[index].pauseSec = -1;
+                } else {
+                    waypoints[index].pauseSec = parseFloat(newPause) || 0;
+                }
+                updateWaypointList();
+                render();
+            }
+        }
+
+        function deleteWaypoint(index) {
+            waypoints.splice(index, 1);
+            updateWaypointList();
+            render();
+        }
+
+        function clearWaypoints() {
+            if (confirm('Clear all waypoints?')) {
+                waypoints = [];
+                updateWaypointList();
+                render();
+            }
+        }
+
+        function undoLast() {
+            if (waypoints.length > 0) {
+                waypoints.pop();
+                updateWaypointList();
+                render();
+            }
+        }
+
+        // Export/Import
+        function exportCSV() {
+            if (waypoints.length === 0) {
+                alert('No waypoints to export');
+                return;
+            }
+
+            let csv = 'x,y,yaw,pause_sec\n';
+            for (const wp of waypoints) {
+                csv += `${wp.x.toFixed(4)},${wp.y.toFixed(4)},${wp.yaw.toFixed(4)},${wp.pauseSec}\n`;
+            }
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'waypoints.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importCSV() {
+            document.getElementById('csvImport').click();
+        }
+
+        function handleCSVImport(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const lines = event.target.result.split('\n');
+                waypoints = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+
+                    const parts = line.split(',');
+                    if (parts.length >= 3) {
+                        waypoints.push({
+                            x: parseFloat(parts[0]),
+                            y: parseFloat(parts[1]),
+                            yaw: parseFloat(parts[2]),
+                            pauseSec: parts.length > 3 ? parseFloat(parts[3]) : 0
+                        });
+                    }
+                }
+
+                updateWaypointList();
+                render();
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        }
+
+        // Rendering
+        function render() {
+            ctx.fillStyle = '#0f0f23';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (mapImage) {
+                ctx.save();
+                ctx.translate(offsetX, offsetY);
+                ctx.scale(scale, scale);
+                ctx.drawImage(mapImage, 0, 0);
+                ctx.restore();
+            }
+
+            // Draw grid
+            if (scale > 0.5) {
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                ctx.lineWidth = 1;
+                const gridSize = 1 / resolution; // 1 meter in pixels
+                const scaledGrid = gridSize * scale;
+
+                if (scaledGrid > 20) {
+                    const startX = offsetX % scaledGrid;
+                    const startY = offsetY % scaledGrid;
+
+                    ctx.beginPath();
+                    for (let x = startX; x < canvas.width; x += scaledGrid) {
+                        ctx.moveTo(x, 0);
+                        ctx.lineTo(x, canvas.height);
+                    }
+                    for (let y = startY; y < canvas.height; y += scaledGrid) {
+                        ctx.moveTo(0, y);
+                        ctx.lineTo(canvas.width, y);
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            // Draw waypoints
+            for (let i = 0; i < waypoints.length; i++) {
+                const wp = waypoints[i];
+                const pixel = worldToPixel(wp.x, wp.y);
+                const screen = pixelToScreen(pixel.x, pixel.y);
+
+                // Draw connection line to next waypoint
+                if (i < waypoints.length - 1) {
+                    const nextWp = waypoints[i + 1];
+                    const nextPixel = worldToPixel(nextWp.x, nextWp.y);
+                    const nextScreen = pixelToScreen(nextPixel.x, nextPixel.y);
+
+                    ctx.strokeStyle = '#4caf50';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(screen.x, screen.y);
+                    ctx.lineTo(nextScreen.x, nextScreen.y);
+                    ctx.stroke();
+                }
+
+                // Draw waypoint marker
+                let radius = 6;
+                let markerColor = '#e94560';
+                if (wp.pauseSec === -1) {
+                    radius = 10;
+                    markerColor = '#00bcd4';
+                } else if (wp.pauseSec > 0) {
+                    radius = 10;
+                    markerColor = '#ffa500';
+                }
+                ctx.fillStyle = markerColor;
+                ctx.beginPath();
+                ctx.arc(screen.x, screen.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw orientation arrow
+                const arrowLen = 15;
+                const arrowX = screen.x + Math.cos(-wp.yaw) * arrowLen;
+                const arrowY = screen.y + Math.sin(-wp.yaw) * arrowLen;
+
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(screen.x, screen.y);
+                ctx.lineTo(arrowX, arrowY);
+                ctx.stroke();
+
+                // Draw index number
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px sans-serif';
+                ctx.fillText(i + 1, screen.x + 10, screen.y - 5);
+
+                // Draw pause indicator
+                if (wp.pauseSec === -1) {
+                    ctx.fillStyle = '#00bcd4';
+                    ctx.font = 'bold 9px sans-serif';
+                    ctx.fillText('WAIT', screen.x + 10, screen.y + 15);
+                } else if (wp.pauseSec > 0) {
+                    ctx.fillStyle = '#ffa500';
+                    ctx.font = 'bold 9px sans-serif';
+                    ctx.fillText(`${wp.pauseSec}s`, screen.x + 10, screen.y + 15);
+                }
+            }
+
+            // Draw origin marker
+            if (mapImage) {
+                const originScreen = pixelToScreen(0, imageHeight);
+                ctx.strokeStyle = '#00f';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(originScreen.x - 10, originScreen.y);
+                ctx.lineTo(originScreen.x + 20, originScreen.y);
+                ctx.moveTo(originScreen.x, originScreen.y + 10);
+                ctx.lineTo(originScreen.x, originScreen.y - 20);
+                ctx.stroke();
+
+                ctx.fillStyle = '#00f';
+                ctx.font = '12px sans-serif';
+                ctx.fillText('Origin', originScreen.x + 5, originScreen.y + 20);
+            }
+        }
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Node modules (if using build tools)
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Cloudflare
+.wrangler/
+.dev.vars
+
+# Environment files
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

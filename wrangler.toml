@@ -1,0 +1,17 @@
+name = "waypoint-editor"
+compatibility_date = "2024-01-01"
+
+# Cloudflare Pages configuration
+# This file is optional but useful for custom domains and settings
+
+[build]
+command = ""
+build_output_directory = "."
+
+# Custom headers for security
+[[headers]]
+for = "/*"
+[headers.values]
+X-Frame-Options = "SAMEORIGIN"
+X-Content-Type-Options = "nosniff"
+Referrer-Policy = "strict-origin-when-cross-origin"

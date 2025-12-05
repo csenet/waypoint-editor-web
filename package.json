@@ -1,0 +1,21 @@
+{
+  "name": "waypoint-editor-web",
+  "version": "1.0.0",
+  "description": "Web-based waypoint editor for ROS navigation",
+  "scripts": {
+    "dev": "npx serve .",
+    "preview": "npx serve .",
+    "deploy": "wrangler pages deploy ."
+  },
+  "keywords": [
+    "waypoint",
+    "ros",
+    "navigation",
+    "editor"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}
