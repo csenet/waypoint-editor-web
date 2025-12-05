@@ -1,0 +1,312 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+}
+
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: #16213e;
+    border-bottom: 2px solid #0f3460;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 15px;
+    z-index: 100;
+}
+
+.header h1 {
+    font-size: 1.2em;
+    margin: 0;
+    margin-right: 20px;
+    color: #e94560;
+}
+
+.header .mode-buttons {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+}
+
+.header .mode-buttons .btn {
+    padding: 8px 16px;
+    margin: 0;
+    font-size: 0.9em;
+    min-width: 90px;
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+    padding-top: 60px;
+}
+
+.sidebar {
+    width: 320px;
+    background: #16213e;
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 2px solid #0f3460;
+}
+
+.canvas-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #0f0f23;
+}
+
+#mapCanvas {
+    cursor: crosshair;
+}
+
+h1 {
+    font-size: 1.4em;
+    margin-bottom: 20px;
+    color: #e94560;
+}
+
+h2 {
+    font-size: 1.1em;
+    margin: 20px 0 10px 0;
+    color: #0f3460;
+    border-bottom: 1px solid #0f3460;
+    padding-bottom: 5px;
+    color: #e94560;
+}
+
+.section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #1a1a2e;
+    border-radius: 8px;
+}
+
+label {
+    display: block;
+    margin: 10px 0 5px 0;
+    font-size: 0.9em;
+    color: #aaa;
+}
+
+input[type="file"] {
+    width: 100%;
+    padding: 8px;
+    background: #0f3460;
+    border: none;
+    border-radius: 4px;
+    color: #eee;
+    cursor: pointer;
+}
+
+input[type="number"], input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    background: #0f3460;
+    border: 1px solid #1a1a2e;
+    border-radius: 4px;
+    color: #eee;
+}
+
+input[type="number"]:focus, input[type="text"]:focus {
+    outline: none;
+    border-color: #e94560;
+}
+
+.btn {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95em;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: #e94560;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #ff6b6b;
+}
+
+.btn-secondary {
+    background: #0f3460;
+    color: #eee;
+}
+
+.btn-secondary:hover {
+    background: #1a4a7e;
+}
+
+.btn-danger {
+    background: #8b0000;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #a52a2a;
+}
+
+.btn-warning {
+    background: #ffa500;
+    color: #1a1a2e;
+}
+
+.btn-warning:hover {
+    background: #ffb733;
+}
+
+.mode-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.mode-buttons .btn {
+    flex: 1;
+}
+
+.mode-buttons .btn.active {
+    background: #e94560;
+    color: white;
+}
+
+.waypoint-list {
+    max-height: 300px;
+    overflow-y: auto;
+    background: #0f3460;
+    border-radius: 4px;
+    padding: 5px;
+}
+
+.waypoint-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin: 3px 0;
+    background: #16213e;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.waypoint-item.pause {
+    background: #3d2e00;
+    border-left: 3px solid #ffa500;
+}
+
+.waypoint-item.wait-topic {
+    background: #002e3d;
+    border-left: 3px solid #00bcd4;
+}
+
+.waypoint-item .index {
+    width: 25px;
+    font-weight: bold;
+    color: #e94560;
+}
+
+.waypoint-item .coords {
+    flex: 1;
+}
+
+.waypoint-item .actions {
+    display: flex;
+    gap: 3px;
+}
+
+.waypoint-item .actions button {
+    padding: 3px 8px;
+    font-size: 0.8em;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.waypoint-item .actions .pause-btn {
+    background: #ffa500;
+    color: #1a1a2e;
+}
+
+.waypoint-item .actions .pause-btn.paused {
+    background: #4caf50;
+}
+
+.waypoint-item .actions .pause-btn.wait-topic {
+    background: #00bcd4;
+}
+
+.waypoint-item .actions .delete-btn {
+    background: #8b0000;
+    color: white;
+}
+
+.info-box {
+    padding: 10px;
+    background: #0f3460;
+    border-radius: 4px;
+    font-size: 0.85em;
+    line-height: 1.6;
+}
+
+.info-box code {
+    background: #1a1a2e;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #4caf50;
+}
+
+.status-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 20px;
+    background: rgba(22, 33, 62, 0.95);
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9em;
+}
+
+.zoom-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.zoom-controls button {
+    width: 40px;
+    height: 40px;
+    font-size: 1.5em;
+    border: none;
+    border-radius: 4px;
+    background: #16213e;
+    color: #eee;
+    cursor: pointer;
+}
+
+.zoom-controls button:hover {
+    background: #0f3460;
+}
+
+.help-text {
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 5px;
+}
